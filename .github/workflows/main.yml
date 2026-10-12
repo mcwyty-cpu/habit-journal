@@ -1,0 +1,40 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build the app
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Keep a copy with the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: HabitJournal-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish to Releases for easy phone download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk HabitJournal.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest HabitJournal.apk \
+            --title "Habit Journal" \
+            --notes "Tap HabitJournal.apk below to download it, then open it on your phone to install."
