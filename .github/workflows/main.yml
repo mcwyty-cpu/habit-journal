@@ -11,29 +11,36 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
       - name: Build the app
         run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          SETTINGS=$(find . -name settings.gradle -not -path './.git/*' | head -1)
+          if [ -z "$SETTINGS" ]; then echo "settings.gradle not found - were all the project files uploaded?"; ls -la; exit 1; fi
+          cd "$(dirname "$SETTINGS")"
+          echo "Building in: $(pwd)"
+          gradle assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/HabitJournal.apk"
 
       - name: Keep a copy with the build
         uses: actions/upload-artifact@v4
         with:
           name: HabitJournal-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: HabitJournal.apk
 
       - name: Publish to Releases for easy phone download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk HabitJournal.apk
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest HabitJournal.apk \
             --title "Habit Journal" \
